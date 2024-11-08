@@ -1,0 +1,13 @@
+{
+  "minGameVersion": "1.21.40",
+  "projectName": "vlad-project",
+  "projectAlias": "vlp",
+  "projectType": "addon",
+  "buildOptions": {
+    "loader": {
+      "type": "esbuild"
+    }
+  },
+  "scriptsEntry": "api",
+  "useMinecraftPreview": false
+}

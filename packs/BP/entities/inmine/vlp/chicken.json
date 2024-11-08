@@ -1,0 +1,37 @@
+{
+  "format_version": "1.20.80",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "inmine_vlp:chicken",
+      "is_experimental": false,
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:health": {
+        "value": 8,
+        "max": 8
+      },
+      "minecraft:collision_box": {
+        "height": 1,
+        "width": 1
+      },
+      "minecraft:physics": {},
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "on_interact": {
+              "filters": {
+                "test": "has_tag",
+                "subject": "self",
+                "operator": "!=",
+                "value": "custome tag"
+              },
+              "event": "set_custom_tag_event"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

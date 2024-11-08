@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "inmine_vlp:chicken",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "geometry": {
+        "default": "geometry.chicken"
+      },
+      "textures": {
+        "default": "textures/entity/chicken"
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

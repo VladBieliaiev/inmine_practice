@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "inmine_vlp:pig",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "geometry": {
+        "default": "geometry.pig"
+      },
+      "textures": {
+        "default": "textures/entity/pig/pig"
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

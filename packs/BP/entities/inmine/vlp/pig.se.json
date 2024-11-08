@@ -1,0 +1,95 @@
+{
+  "format_version": "1.20.80",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "inmine_vlp:pig",
+      "is_experimental": false,
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:health": {
+        "value": 100,
+        "max": 100
+      },
+      "minecraft:collision_box": {
+        "height": 1,
+        "width": 1
+      },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "on_interact": {
+              "filters": {
+                "test": "has_tag",
+                "subject": "self",
+                "operator": "!=",
+                "value": "inmine_vlp.knockback_resistant"
+              },
+              "event": "inmine_vlp:become_knockback_resistant"
+            }
+          },
+          {
+            "on_interact": {
+              "filters": {
+                "test": "has_tag",
+                "subject": "self",
+                "value": "inmine_vlp.knockback_resistant"
+              },
+              "event": "inmine_vlp:remove_knockback_resistance"
+            }
+          }
+        ]
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "all",
+            "deals_damage": false,
+            "on_damage": {
+              "event": "inmine_vlp:give_speed_to_nearby_players"
+            }
+          }
+        ]
+      },
+      "minecraft:physics": {}
+    },
+    "component_groups": {
+      "inmine_vlp:low_knockback_resistance": {
+        "minecraft:knockback_resistance": {
+          "value": 0.1,
+          "max": 0.1
+        }
+      },
+      "inmine_vlp:knockback_resistance": {
+        "minecraft:knockback_resistance": {
+          "value": 1,
+          "max": 1
+        }
+      }
+    },
+    "events": {
+      "inmine_vlp:become_knockback_resistant": {
+        "remove": {
+          "component_groups": ["inmine_vlp:low_knockback_resistance"]
+        },
+        "add": {
+          "component_groups": ["inmine_vlp:knockback_resistance"]
+        }
+      },
+      "inmine_vlp:remove_knockback_resistance": {
+        "remove": {
+          "component_groups": ["inmine_vlp:knockback_resistance"]
+        },
+        "add": {
+          "component_groups": ["inmine_vlp:low_knockback_resistance"]
+        }
+      },
+      "inmine_vlp:give_speed_to_nearby_players": {
+        "queue_command": {
+          "command": "scriptevent inmine_vlp:pig give_speed_to_nearby_players"
+        }
+      }
+    }
+  }
+}

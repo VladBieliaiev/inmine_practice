@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "pack.name",
+    "description": "pack.description",
+    "uuid": "bc59a197-0730-4d29-aabd-5cbfc7db0a25",
+    "pack_scope": "world",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 40]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "203a9ccd-e31d-40c8-b001-a7f4a31f274b",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "uuid": "1ca1b0ff-3f09-4c0f-8237-eaac56b91932",
+      "description": "InMine script resources",
+      "language": "javascript",
+      "version": [1, 0, 0],
+      "entry": "scripts/inmine/vlp/index.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "version": [1, 0, 0],
+      "uuid": "25dd5563-3edc-41bf-9ea0-51b100fdbb07"
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.15.0"
+    }
+  ],
+
+  "metadata": {
+    "product_type": "addon"
+  }
+}
