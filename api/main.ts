@@ -1,8 +1,10 @@
 import {
   DimensionLocation,
   Entity,
+  EntityComponentTypes,
+  EntityEquippableComponent,
+  EquipmentSlot,
   Player,
-  system,
   Vector3,
   world,
 } from '@minecraft/server';
@@ -12,102 +14,141 @@ import { Vector3Utils } from '@minecraft/math';
 
 import { VladProjectModule } from './vlad-project.module';
 
+// Utility functions
+const spawnEntityAtLocation = (
+  entityType: string,
+  location: DimensionLocation,
+) => {
+  try {
+    const spawnPosition = Vector3Utils.add(location, { x: 0, y: 1, z: 0 });
+    location.dimension.spawnEntity(entityType, spawnPosition);
+  } catch (error) {
+    console.error(`Failed to spawn entity ${error}`);
+  }
+};
+
+const getTargetLocation = (playerLocation: Vector3) => {
+  return {
+    x: playerLocation.x + 2,
+    y: playerLocation.y,
+    z: playerLocation.z + 2,
+    dimension: world.getDimension('overworld'),
+  };
+};
+
+const removeItemAfterSummonChicken = (player: Player) => {
+  const equipmentCompPlayer: any = player.getComponent(
+    EntityComponentTypes.Equippable,
+  ) as EntityEquippableComponent;
+  equipmentCompPlayer.setEquipment(EquipmentSlot.Mainhand, null);
+};
+
+// Helper
+const sendWorldMessage = (message: string) => {
+  world.sendMessage(message);
+};
+
+// Chicken Binding Logic
+
+let chicken1: Entity | null = null;
+let chicken2: Entity | null = null;
+
+const bindChicken = (chicken: Entity, isFirst: boolean) => {
+  chicken.addTag('teleport');
+  const chickenNumber = isFirst ? 1 : 2;
+  sendWorldMessage(`chicken ${chickenNumber} id bound`);
+
+  if (isFirst) chicken1 = chicken;
+  else chicken2 = chicken;
+
+  if (chicken1 && chicken2) {
+    chicken1.addTag(`partner_id:${chicken2.id}`);
+    chicken2.addTag(`partner_id:${chicken1.id}`);
+    sendWorldMessage('chicken 1 and 2 are now connected!');
+  }
+};
+
+const teleportToPartnerChicken = (chicken: Entity, player: Player) => {
+  const partnerIdTag = chicken
+    .getTags()
+    .find((tag) => tag.startsWith('partner_id:'));
+  if (!partnerIdTag) return sendWorldMessage('Partner not found!');
+
+  const partnerId = partnerIdTag.split(':')[1];
+  const partnerChicken = world.getEntity(partnerId);
+
+  if (partnerChicken) {
+    player.teleport(partnerChicken.location);
+    sendWorldMessage('Teleported to your partner!');
+  } else {
+    sendWorldMessage('Partner chicken not found!');
+  }
+};
+
+const handleChickenDeath = (deadChicken: Entity) => {
+  if (deadChicken === chicken1) {
+    if (chicken2) chicken2.removeTag(`partner_id:${deadChicken.id}`);
+    chicken1 = null;
+    sendWorldMessage('Chicken 1 has died. It can now be re-bound');
+  } else if (deadChicken === chicken2) {
+    if (chicken1) chicken1.removeTag(`partner_id:${deadChicken.id}`);
+    chicken2 = null;
+    sendWorldMessage('Chicken 2 has died. It can now be re-bound');
+  }
+};
+
+// Event Handlers
+
+const handleItemUse = (player: Player, itemId: string) => {
+  const targetLocation = getTargetLocation(player.location);
+
+  switch (itemId) {
+    case 'minecraft:stick':
+      spawnEntityAtLocation('minecraft:pig', targetLocation);
+      break;
+    case 'inmine_vlp:spawn_item':
+      spawnEntityAtLocation('inmine_vlp:chicken', targetLocation);
+      removeItemAfterSummonChicken(player);
+      break;
+    default:
+      return;
+  }
+};
+
+const handleChickenInteract = (chicken: Entity, player: Player) => {
+  const heldItem = player.getComponent(
+    EntityComponentTypes.Equippable,
+  ) as EntityEquippableComponent;
+  const mainHandItem = heldItem.getEquipment(EquipmentSlot.Mainhand);
+
+  if (mainHandItem?.typeId === 'inmine_vlp:bind_item') {
+    if (!chicken.hasTag('teleport')) {
+      bindChicken(chicken, !chicken1);
+    }
+  } else teleportToPartnerChicken(chicken, player);
+};
+
 const bootstrap = () => {
   InMineModuleFactory.register(VladProjectModule);
 
-  // 1 Spawn pig using stick, spawn camel using torch
-
-  const spawnEntityAtLocation = (
-    entityType: string,
-    location: DimensionLocation,
-  ) => {
-    system.runTimeout(() => {
-      location.dimension.spawnEntity(
-        entityType,
-        Vector3Utils.add(location, { x: 0, y: 1, z: 0 }),
-      );
-    });
-  };
-
-  const getTargetLocation = (playerLocation: Vector3) => {
-    return {
-      x: playerLocation.x + 2,
-      y: playerLocation.y,
-      z: playerLocation.z + 2,
-      dimension: world.getDimension('overworld'),
-    };
-  };
-
-  world.beforeEvents.itemUse.subscribe((event) => {
-    const usedItem = event.itemStack.typeId;
-    const player = event.source;
-    const targetLocation = getTargetLocation(player.location);
-
-    switch (usedItem) {
-      case 'minecraft:stick':
-        spawnEntityAtLocation('minecraft:pig', targetLocation);
-        break;
-      case 'minecraft:torch':
-        spawnEntityAtLocation('minecraft:camel', targetLocation);
-        break;
-      default:
-        return;
-    }
+  // Item Use Event
+  world.afterEvents.itemUse.subscribe((event) => {
+    const { source: player, itemStack } = event;
+    handleItemUse(player, itemStack.typeId);
   });
 
-  //2 Adding 'teleport' tag to 'inmine_vlp:chicken' and Teleportation betwen them
-
-  let chicken1: Entity | null = null;
-  let chicken2: Entity | null = null;
-
-  const addTeleportTag = (entity: Entity, player: Player) => {
-    if (!entity.hasTag('teleport')) {
-      entity.addTag('teleport');
-      player.sendMessage(`You have added a custom tag to the chicken!`);
-
-      if (!chicken1) {
-        chicken1 = entity;
-        player.sendMessage(`First chicken set for teleportation.`);
-      } else if (!chicken2) {
-        chicken2 = entity;
-        player.sendMessage(`Second chicken set for teleportation.`);
-      } else {
-        player.sendMessage(`Both chickens are already set for teleportation.`);
-      }
-    }
-  };
-
-  const teleportToChicken = (entity: Entity, player: Player) => {
-    if (entity === chicken1 && chicken2) {
-      const targetPosition = chicken2.location;
-      player.teleport(targetPosition);
-      player.sendMessage(`You have been teleported to the second chicken!`);
-    } else if (entity === chicken2 && chicken1) {
-      const targetPosition = chicken1.location;
-      player.teleport(targetPosition);
-      player.sendMessage(`You have been teleported to the first chicken!`);
-    }
-  };
-
+  // Chicken Interaction Event
   world.afterEvents.playerInteractWithEntity.subscribe((event) => {
-    const entity = event.target;
-    const player = event.player;
-
-    if (entity.typeId === 'inmine_vlp:chicken') {
-      try {
-        addTeleportTag(entity, player);
-        teleportToChicken(entity, player);
-      } catch (error: any) {
-        player.sendMessage(`Error adding tag: ${error.message}`);
-      }
-    }
+    const { target: chicken, player } = event;
+    if (chicken.typeId === 'inmine_vlp:chicken')
+      handleChickenInteract(chicken, player);
   });
 
-  // implemented this for checking entity tag by hurting them
-  world.afterEvents.entityHurt.subscribe((event) => {
-    if (event.hurtEntity) {
-      world.sendMessage(event.hurtEntity.getTags().toString());
-    }
+  // Chicken Death Event
+  world.afterEvents.entityDie.subscribe((event) => {
+    const { deadEntity } = event;
+    if (deadEntity.typeId === 'inmine_vlp:chicken')
+      handleChickenDeath(deadEntity);
   });
 };
 

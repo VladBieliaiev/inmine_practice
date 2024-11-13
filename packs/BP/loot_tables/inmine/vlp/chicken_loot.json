@@ -1,0 +1,22 @@
+{
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "inmine_vlp:spawnItem",
+          "functions": [
+            {
+              "function": "set_count",
+              "count": {
+                "max": 1,
+                "min": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

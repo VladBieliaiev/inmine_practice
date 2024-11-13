@@ -1,0 +1,29 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "inmine_vlp:spawn_item"
+    },
+    "components": {
+      "minecraft:max_stack_size": 1,
+      "minecraft:durability": {
+        "damage_chance": {
+          "min": 100,
+          "max": 100
+        },
+        "max_durability": 10000
+      },
+      "minecraft:display_name": {
+        "value": "spawn_item"
+      },
+      "minecraft:icon": {
+        "textures": {
+          "default": "honeycomb"
+        }
+      },
+      "minecraft:damage": {
+        "value": 18
+      }
+    }
+  }
+}

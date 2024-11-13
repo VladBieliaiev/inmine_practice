@@ -8,15 +8,14 @@
       "is_summonable": true
     },
     "components": {
-      "minecraft:health": {
-        "value": 8,
-        "max": 8
-      },
       "minecraft:collision_box": {
         "height": 1,
         "width": 1
       },
-      "minecraft:physics": {},
+      "minecraft:health": {
+        "value": 150,
+        "max": 150
+      },
       "minecraft:interact": {
         "interactions": [
           {
@@ -31,6 +30,36 @@
             }
           }
         ]
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "all",
+            "deals_damage": false,
+            "on_damage": {
+              "event": "kill_chicken_event"
+            }
+          }
+        ]
+      },
+      "minecraft:loot": {
+        "table": "loot_tables/inmine/vlp/chicken_loot.json"
+      },
+      "minecraft:physics": {}
+    },
+    "component_groups": {
+      "kill_chicken": {
+        "minecraft:health": {
+          "value": 0,
+          "max": 0
+        }
+      }
+    },
+    "events": {
+      "kill_chicken_event": {
+        "add": {
+          "component_groups": ["kill_chicken"]
+        }
       }
     }
   }
