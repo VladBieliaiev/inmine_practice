@@ -28,6 +28,7 @@ const SPAWN_MINOR_TOTEM_ITEM = 'inmine_vlp:spawn_totem';
 const TELEPORT_COOLDOWN = 6000;
 
 const lastTeleportTimes: { [playerName: string]: number } = {};
+
 // =========================
 // Utility Functions
 // =========================
@@ -62,6 +63,37 @@ const getTargetLocation = (playerLocation: Vector3): DimensionLocation => ({
   dimension: DIMENSION_OVERWORLD,
 });
 
+const isOnCooldown = (playerName: string): boolean => {
+  const lastTime = lastTeleportTimes[playerName] || 0;
+
+  return Date.now() - lastTime < TELEPORT_COOLDOWN;
+};
+
+const getCooldownMessage = (playerName: string): string => {
+  const remainingTime =
+    TELEPORT_COOLDOWN - (Date.now() - lastTeleportTimes[playerName]);
+
+  return `Teleport on cooldown! Please wait ${Math.ceil(remainingTime / 1500)} seconds.`;
+};
+
+const setCooldown = (playerName: string): void => {
+  lastTeleportTimes[playerName] = Date.now();
+};
+
+const performTeleport = (
+  player: Player,
+  location: Vector3,
+  successMessage: string,
+): void => {
+  try {
+    player.teleport(location);
+    sendWorldMessage(successMessage);
+  } catch (error) {
+    console.error(`Teleportation failed: ${error}`);
+    sendWorldMessage('Failed to teleport. Please try again.');
+  }
+};
+
 // =========================
 // Totem Management
 // =========================
@@ -86,35 +118,29 @@ const bindMinorTotem = (totem: Entity): void => {
   sendWorldMessage('Minor totem successfully bound to the main totem!');
 };
 
-const teleportToMainTotem = (player: Player): void => {
+const teleportToTotem = (player: Player, totem: Entity): void => {
   const playerName = player.nameTag;
-  const currentTime = Date.now();
 
-  if (
-    lastTeleportTimes[playerName] &&
-    currentTime - lastTeleportTimes[playerName] < TELEPORT_COOLDOWN
-  ) {
-    const remainingTime =
-      TELEPORT_COOLDOWN - (currentTime - lastTeleportTimes[playerName]);
+  if (isOnCooldown(playerName)) {
+    sendWorldMessage(getCooldownMessage(playerName));
 
-    return sendWorldMessage(
-      `Teleport on cooldown! Please wait ${Math.ceil(remainingTime / 1500)} seconds.`,
-    );
+    return;
   }
 
-  if (!mainTotem)
-    return sendWorldMessage('No main totem available for teleportation!');
+  const totemLocation = totem.getDynamicProperty('location') as Vector3 | null;
 
-  const mainTotemLocation = mainTotem.getDynamicProperty(
-    'location',
-  ) as Vector3 | null;
-  if (!mainTotemLocation)
-    return sendWorldMessage('Main totem location not found!');
+  if (!totemLocation) {
+    sendWorldMessage('Totem location not found!');
 
-  player.teleport(mainTotemLocation);
-  sendWorldMessage('Teleported to the main totem!');
+    return;
+  }
 
-  lastTeleportTimes[playerName] = currentTime;
+  performTeleport(
+    player,
+    totemLocation,
+    `Teleported to Totem (ID: ${totem.id})!`,
+  );
+  setCooldown(playerName);
 };
 
 const handleTotemDeath = (deadTotem: Entity): void => {
@@ -140,7 +166,6 @@ const handleTotemDeath = (deadTotem: Entity): void => {
 // =========================
 // Form Management
 // =========================
-
 const openTotemForm = (player: Player): void => {
   const form = new ActionFormData()
     .title('Minor Totems Bound to Main Totem')
@@ -156,19 +181,14 @@ const openTotemForm = (player: Player): void => {
       if (response.canceled) return;
 
       const selectedIndex = response.selection;
-
       if (selectedIndex !== undefined) {
         const selectedTotem = minorTotems[selectedIndex];
-        if (selectedTotem) {
-          openTotemActionForm(player, selectedTotem);
-        }
+        if (selectedTotem) openTotemActionForm(player, selectedTotem);
       } else {
         sendWorldMessage('No valid minor totem selected.');
       }
     })
-    .catch((error) => {
-      console.error('Error displaying form:', error);
-    });
+    .catch((error) => console.error('Error displaying form:', error));
 };
 
 const openTotemActionForm = (player: Player, totem: Entity): void => {
@@ -186,32 +206,10 @@ const openTotemActionForm = (player: Player, totem: Entity): void => {
       totem.setDynamicProperty('mainTotemId', undefined);
       sendWorldMessage(`Minor Totem (ID: ${totem.id}) removed.`);
     } else if (response.selection === 1) {
-      const totemLocation = totem.getDynamicProperty(
-        'location',
-      ) as Vector3 | null;
-      if (totemLocation) player.teleport(totemLocation);
+      teleportToTotem(player, totem);
     }
   });
 };
-
-// =========================
-// Check Existing Totems on World Load
-// =========================
-
-// const checkExistingTokensOnLoad = () => {
-//   // Get all entities in the overworld dimension
-//   const allEntities = DIMENSION_OVERWORLD.getEntities();
-
-//   // Find and set the main and minor totems based on their types
-//   allEntities.forEach((entity) => {
-//     if (entity.typeId === MAIN_TOTEM_TYPE) {
-//       mainTotem = entity;
-//       sendWorldMessage(`Loaded Main Totem with ID ${mainTotem.id}`);
-//     } else if (entity.typeId === MINOR_TOTEM_TYPE) {
-//       bindMinorTotem(entity); // Bind existing minor totems
-//     }
-//   });
-// };
 
 // =========================
 // Event Handlers
@@ -242,7 +240,7 @@ const handleTotemInteract = (totem: Entity, player: Player): void => {
   if (mainHandItem?.typeId === BIND_ITEM_TYPE) {
     bindMinorTotem(totem);
   } else if (totem.getDynamicProperty('mainTotemId') === mainTotem?.id) {
-    teleportToMainTotem(player);
+    teleportToTotem(player, mainTotem!);
   }
 };
 
@@ -251,8 +249,6 @@ const handleTotemInteract = (totem: Entity, player: Player): void => {
 // =========================
 const bootstrap = (): void => {
   InMineModuleFactory.register(VladProjectModule);
-
-  // checkExistingTokensOnLoad();
 
   world.afterEvents.itemUse.subscribe(({ source, itemStack }) =>
     handleItemUse(source, itemStack.typeId),
