@@ -29,6 +29,10 @@
       "uuid": "25dd5563-3edc-41bf-9ea0-51b100fdbb07"
     },
     {
+      "module_name": "@minecraft/server-ui",
+      "version": "1.2.0"
+    },
+    {
       "module_name": "@minecraft/server",
       "version": "1.15.0"
     }

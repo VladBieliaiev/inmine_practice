@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "inmine_vlp:main_totem",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "geometry": {
+        "default": "geometry.chicken"
+      },
+      "textures": {
+        "default": "textures/blocks/amethyst_block"
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

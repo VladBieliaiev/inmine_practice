@@ -18,7 +18,7 @@
       },
       "minecraft:icon": {
         "textures": {
-          "default": "egg"
+          "default": "stick"
         }
       },
       "minecraft:damage": {

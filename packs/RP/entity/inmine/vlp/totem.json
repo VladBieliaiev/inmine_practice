@@ -2,7 +2,7 @@
   "format_version": "1.10.0",
   "minecraft:client_entity": {
     "description": {
-      "identifier": "inmine_vlp:chicken",
+      "identifier": "inmine_vlp:totem",
       "materials": {
         "default": "entity_alphatest"
       },

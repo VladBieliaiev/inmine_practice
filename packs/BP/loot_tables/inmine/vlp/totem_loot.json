@@ -5,7 +5,7 @@
       "entries": [
         {
           "type": "item",
-          "name": "inmine_vlp:spawnItem",
+          "name": "inmine_vlp:spawn_totem",
           "functions": [
             {
               "function": "set_count",

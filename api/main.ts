@@ -11,144 +11,261 @@ import {
 
 import { InMineModuleFactory } from '@inmine/core/modules/module-factory';
 import { Vector3Utils } from '@minecraft/math';
+import { ActionFormData } from '@minecraft/server-ui';
 
 import { VladProjectModule } from './vlad-project.module';
 
-// Utility functions
+// =========================
+// Constants
+// =========================
+const DIMENSION_OVERWORLD = world.getDimension('overworld');
+const MAX_MINOR_TOTEMS = 6;
+const MAIN_TOTEM_TYPE = 'inmine_vlp:main_totem';
+const MINOR_TOTEM_TYPE = 'inmine_vlp:totem';
+const BIND_ITEM_TYPE = 'inmine_vlp:bind_item';
+const SPAWN_MAIN_TOTEM_ITEM = 'inmine_vlp:spawn_main_totem';
+const SPAWN_MINOR_TOTEM_ITEM = 'inmine_vlp:spawn_totem';
+const TELEPORT_COOLDOWN = 6000;
+
+const lastTeleportTimes: { [playerName: string]: number } = {};
+// =========================
+// Utility Functions
+// =========================
+const sendWorldMessage = (message: string): void => world.sendMessage(message);
+
 const spawnEntityAtLocation = (
   entityType: string,
   location: DimensionLocation,
-) => {
+): Entity | null => {
   try {
     const spawnPosition = Vector3Utils.add(location, { x: 0, y: 1, z: 0 });
-    location.dimension.spawnEntity(entityType, spawnPosition);
+
+    return location.dimension.spawnEntity(entityType, spawnPosition);
   } catch (error) {
-    console.error(`Failed to spawn entity ${error}`);
+    console.error(`Failed to spawn entity (${entityType}): ${error}`);
+
+    return null;
   }
 };
 
-const getTargetLocation = (playerLocation: Vector3) => {
-  return {
-    x: playerLocation.x + 2,
-    y: playerLocation.y,
-    z: playerLocation.z + 2,
-    dimension: world.getDimension('overworld'),
-  };
-};
-
-const removeItemAfterSummonChicken = (player: Player) => {
-  const equipmentCompPlayer: any = player.getComponent(
+const removeItemAfterSummon = (player: Player): void => {
+  const equipmentComp = player.getComponent(
     EntityComponentTypes.Equippable,
   ) as EntityEquippableComponent;
-  equipmentCompPlayer.setEquipment(EquipmentSlot.Mainhand, null);
+  equipmentComp.setEquipment(EquipmentSlot.Mainhand, undefined);
 };
 
-// Helper
-const sendWorldMessage = (message: string) => {
-  world.sendMessage(message);
-};
+const getTargetLocation = (playerLocation: Vector3): DimensionLocation => ({
+  x: playerLocation.x + 2,
+  y: playerLocation.y,
+  z: playerLocation.z + 2,
+  dimension: DIMENSION_OVERWORLD,
+});
 
-// Chicken Binding Logic
+// =========================
+// Totem Management
+// =========================
+let mainTotem: Entity | null = null;
+let minorTotems: Entity[] = [];
 
-let chicken1: Entity | null = null;
-let chicken2: Entity | null = null;
+const bindMinorTotem = (totem: Entity): void => {
+  if (!mainTotem) return sendWorldMessage('No main totem available to bind!');
 
-const bindChicken = (chicken: Entity, isFirst: boolean) => {
-  chicken.addTag('teleport');
-  const chickenNumber = isFirst ? 1 : 2;
-  sendWorldMessage(`chicken ${chickenNumber} id bound`);
+  const existingMainTotemId = totem.getDynamicProperty('mainTotemId') as
+    | string
+    | null;
 
-  if (isFirst) chicken1 = chicken;
-  else chicken2 = chicken;
-
-  if (chicken1 && chicken2) {
-    chicken1.addTag(`partner_id:${chicken2.id}`);
-    chicken2.addTag(`partner_id:${chicken1.id}`);
-    sendWorldMessage('chicken 1 and 2 are now connected!');
+  if (existingMainTotemId) {
+    sendWorldMessage('This totem was previously bound. Rebinding...');
+  } else if (minorTotems.length >= MAX_MINOR_TOTEMS) {
+    return sendWorldMessage('Max number of minor totems already bound!');
   }
+
+  totem.setDynamicProperty('mainTotemId', mainTotem.id);
+  if (!minorTotems.includes(totem)) minorTotems.push(totem);
+  sendWorldMessage('Minor totem successfully bound to the main totem!');
 };
 
-const teleportToPartnerChicken = (chicken: Entity, player: Player) => {
-  const partnerIdTag = chicken
-    .getTags()
-    .find((tag) => tag.startsWith('partner_id:'));
-  if (!partnerIdTag) return sendWorldMessage('Partner not found!');
+const teleportToMainTotem = (player: Player): void => {
+  const playerName = player.nameTag;
+  const currentTime = Date.now();
 
-  const partnerId = partnerIdTag.split(':')[1];
-  const partnerChicken = world.getEntity(partnerId);
+  if (
+    lastTeleportTimes[playerName] &&
+    currentTime - lastTeleportTimes[playerName] < TELEPORT_COOLDOWN
+  ) {
+    const remainingTime =
+      TELEPORT_COOLDOWN - (currentTime - lastTeleportTimes[playerName]);
 
-  if (partnerChicken) {
-    player.teleport(partnerChicken.location);
-    sendWorldMessage('Teleported to your partner!');
-  } else {
-    sendWorldMessage('Partner chicken not found!');
+    return sendWorldMessage(
+      `Teleport on cooldown! Please wait ${Math.ceil(remainingTime / 1500)} seconds.`,
+    );
   }
+
+  if (!mainTotem)
+    return sendWorldMessage('No main totem available for teleportation!');
+
+  const mainTotemLocation = mainTotem.getDynamicProperty(
+    'location',
+  ) as Vector3 | null;
+  if (!mainTotemLocation)
+    return sendWorldMessage('Main totem location not found!');
+
+  player.teleport(mainTotemLocation);
+  sendWorldMessage('Teleported to the main totem!');
+
+  lastTeleportTimes[playerName] = currentTime;
 };
 
-const handleChickenDeath = (deadChicken: Entity) => {
-  if (deadChicken === chicken1) {
-    if (chicken2) chicken2.removeTag(`partner_id:${deadChicken.id}`);
-    chicken1 = null;
-    sendWorldMessage('Chicken 1 has died. It can now be re-bound');
-  } else if (deadChicken === chicken2) {
-    if (chicken1) chicken1.removeTag(`partner_id:${deadChicken.id}`);
-    chicken2 = null;
-    sendWorldMessage('Chicken 2 has died. It can now be re-bound');
+const handleTotemDeath = (deadTotem: Entity): void => {
+  if (deadTotem === mainTotem) {
+    sendWorldMessage(
+      'The main totem has been destroyed! Existing minor totems are unbound.',
+    );
+    mainTotem = null;
+    minorTotems.forEach((totem) =>
+      totem.setDynamicProperty('mainTotemId', undefined),
+    );
+    minorTotems = [];
+
+    return;
   }
+
+  minorTotems = minorTotems.filter((totem) => totem !== deadTotem);
+  sendWorldMessage(
+    'A minor totem has been destroyed. You can spawn a new one.',
+  );
 };
 
+// =========================
+// Form Management
+// =========================
+
+const openTotemForm = (player: Player): void => {
+  const form = new ActionFormData()
+    .title('Minor Totems Bound to Main Totem')
+    .body('Select a minor totem ID from the list.');
+
+  minorTotems.forEach((totem) =>
+    form.button(`Totem ID: ${totem.id}`, 'textures/entity/chicken'),
+  );
+
+  form
+    .show(player)
+    .then((response) => {
+      if (response.canceled) return;
+
+      const selectedIndex = response.selection;
+
+      if (selectedIndex !== undefined) {
+        const selectedTotem = minorTotems[selectedIndex];
+        if (selectedTotem) {
+          openTotemActionForm(player, selectedTotem);
+        }
+      } else {
+        sendWorldMessage('No valid minor totem selected.');
+      }
+    })
+    .catch((error) => {
+      console.error('Error displaying form:', error);
+    });
+};
+
+const openTotemActionForm = (player: Player, totem: Entity): void => {
+  const form = new ActionFormData()
+    .title(`Minor Totem Options (ID: ${totem.id})`)
+    .body('Select an option.')
+    .button('Remove Minor Totem', 'textures/entity/chicken')
+    .button('Teleport to Minor Totem', 'textures/entity/chicken');
+
+  form.show(player).then((response) => {
+    if (response.canceled) return;
+
+    if (response.selection === 0) {
+      minorTotems = minorTotems.filter((t) => t !== totem);
+      totem.setDynamicProperty('mainTotemId', undefined);
+      sendWorldMessage(`Minor Totem (ID: ${totem.id}) removed.`);
+    } else if (response.selection === 1) {
+      const totemLocation = totem.getDynamicProperty(
+        'location',
+      ) as Vector3 | null;
+      if (totemLocation) player.teleport(totemLocation);
+    }
+  });
+};
+
+// =========================
+// Check Existing Totems on World Load
+// =========================
+
+// const checkExistingTokensOnLoad = () => {
+//   // Get all entities in the overworld dimension
+//   const allEntities = DIMENSION_OVERWORLD.getEntities();
+
+//   // Find and set the main and minor totems based on their types
+//   allEntities.forEach((entity) => {
+//     if (entity.typeId === MAIN_TOTEM_TYPE) {
+//       mainTotem = entity;
+//       sendWorldMessage(`Loaded Main Totem with ID ${mainTotem.id}`);
+//     } else if (entity.typeId === MINOR_TOTEM_TYPE) {
+//       bindMinorTotem(entity); // Bind existing minor totems
+//     }
+//   });
+// };
+
+// =========================
 // Event Handlers
-
-const handleItemUse = (player: Player, itemId: string) => {
+// =========================
+const handleItemUse = (player: Player, itemId: string): void => {
   const targetLocation = getTargetLocation(player.location);
 
-  switch (itemId) {
-    case 'minecraft:stick':
-      spawnEntityAtLocation('minecraft:pig', targetLocation);
-      break;
-    case 'inmine_vlp:spawn_item':
-      spawnEntityAtLocation('inmine_vlp:chicken', targetLocation);
-      removeItemAfterSummonChicken(player);
-      break;
-    default:
-      return;
+  if (itemId === SPAWN_MAIN_TOTEM_ITEM) {
+    if (mainTotem) return sendWorldMessage('Main totem already exists!');
+    mainTotem = spawnEntityAtLocation(MAIN_TOTEM_TYPE, targetLocation);
+    mainTotem?.setDynamicProperty('location', targetLocation);
+    removeItemAfterSummon(player);
+  } else if (itemId === SPAWN_MINOR_TOTEM_ITEM) {
+    if (minorTotems.length >= MAX_MINOR_TOTEMS)
+      return sendWorldMessage('Maximum minor totems reached!');
+    const minorTotem = spawnEntityAtLocation(MINOR_TOTEM_TYPE, targetLocation);
+    minorTotem?.setDynamicProperty('location', targetLocation);
+    removeItemAfterSummon(player);
   }
 };
 
-const handleChickenInteract = (chicken: Entity, player: Player) => {
+const handleTotemInteract = (totem: Entity, player: Player): void => {
   const heldItem = player.getComponent(
     EntityComponentTypes.Equippable,
   ) as EntityEquippableComponent;
   const mainHandItem = heldItem.getEquipment(EquipmentSlot.Mainhand);
 
-  if (mainHandItem?.typeId === 'inmine_vlp:bind_item') {
-    if (!chicken.hasTag('teleport')) {
-      bindChicken(chicken, !chicken1);
-    }
-  } else teleportToPartnerChicken(chicken, player);
+  if (mainHandItem?.typeId === BIND_ITEM_TYPE) {
+    bindMinorTotem(totem);
+  } else if (totem.getDynamicProperty('mainTotemId') === mainTotem?.id) {
+    teleportToMainTotem(player);
+  }
 };
 
-const bootstrap = () => {
+// =========================
+// Bootstrap
+// =========================
+const bootstrap = (): void => {
   InMineModuleFactory.register(VladProjectModule);
 
-  // Item Use Event
-  world.afterEvents.itemUse.subscribe((event) => {
-    const { source: player, itemStack } = event;
-    handleItemUse(player, itemStack.typeId);
+  // checkExistingTokensOnLoad();
+
+  world.afterEvents.itemUse.subscribe(({ source, itemStack }) =>
+    handleItemUse(source, itemStack.typeId),
+  );
+
+  world.afterEvents.playerInteractWithEntity.subscribe(({ target, player }) => {
+    if (target.typeId === MAIN_TOTEM_TYPE) openTotemForm(player);
+    if (target.typeId === MINOR_TOTEM_TYPE) handleTotemInteract(target, player);
   });
 
-  // Chicken Interaction Event
-  world.afterEvents.playerInteractWithEntity.subscribe((event) => {
-    const { target: chicken, player } = event;
-    if (chicken.typeId === 'inmine_vlp:chicken')
-      handleChickenInteract(chicken, player);
-  });
-
-  // Chicken Death Event
-  world.afterEvents.entityDie.subscribe((event) => {
-    const { deadEntity } = event;
-    if (deadEntity.typeId === 'inmine_vlp:chicken')
-      handleChickenDeath(deadEntity);
+  world.afterEvents.entityDie.subscribe(({ deadEntity }) => {
+    if ([MAIN_TOTEM_TYPE, MINOR_TOTEM_TYPE].includes(deadEntity.typeId))
+      handleTotemDeath(deadEntity);
   });
 };
 

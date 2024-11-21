@@ -2,7 +2,7 @@
   "format_version": "1.20.80",
   "minecraft:entity": {
     "description": {
-      "identifier": "inmine_vlp:chicken",
+      "identifier": "inmine_vlp:totem",
       "is_experimental": false,
       "is_spawnable": false,
       "is_summonable": true
@@ -37,18 +37,18 @@
             "cause": "all",
             "deals_damage": false,
             "on_damage": {
-              "event": "kill_chicken_event"
+              "event": "kill_totem_event"
             }
           }
         ]
       },
       "minecraft:loot": {
-        "table": "loot_tables/inmine/vlp/chicken_loot.json"
+        "table": "loot_tables/inmine/vlp/totem_loot.json"
       },
       "minecraft:physics": {}
     },
     "component_groups": {
-      "kill_chicken": {
+      "kill_totem": {
         "minecraft:health": {
           "value": 0,
           "max": 0
@@ -56,9 +56,9 @@
       }
     },
     "events": {
-      "kill_chicken_event": {
+      "kill_totem_event": {
         "add": {
-          "component_groups": ["kill_chicken"]
+          "component_groups": ["kill_totem"]
         }
       }
     }

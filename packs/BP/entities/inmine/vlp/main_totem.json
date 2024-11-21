@@ -1,0 +1,66 @@
+{
+  "format_version": "1.20.80",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "inmine_vlp:main_totem",
+      "is_experimental": false,
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:collision_box": {
+        "height": 1,
+        "width": 1
+      },
+      "minecraft:health": {
+        "value": 150,
+        "max": 150
+      },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "on_interact": {
+              "filters": {
+                "test": "has_tag",
+                "subject": "self",
+                "operator": "!=",
+                "value": "custome tag"
+              },
+              "event": "set_custom_tag_event"
+            }
+          }
+        ]
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "all",
+            "deals_damage": false,
+            "on_damage": {
+              "event": "kill_main_totem_event"
+            }
+          }
+        ]
+      },
+      "minecraft:loot": {
+        "table": "loot_tables/inmine/vlp/main_totem_loot.json"
+      },
+      "minecraft:physics": {}
+    },
+    "component_groups": {
+      "kill_main_totem": {
+        "minecraft:health": {
+          "value": 0,
+          "max": 0
+        }
+      }
+    },
+    "events": {
+      "kill_main_totem_event": {
+        "add": {
+          "component_groups": ["kill_main_totem"]
+        }
+      }
+    }
+  }
+}
